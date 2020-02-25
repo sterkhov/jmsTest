@@ -1,5 +1,6 @@
 package org.example.service;
 
+import javax.annotation.PostConstruct;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.Destination;
@@ -11,9 +12,11 @@ import javax.jms.TextMessage;
 
 import org.apache.activemq.ActiveMQConnection;
 import org.apache.activemq.ActiveMQConnectionFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Service;
 
 @Service
+@Scope("singleton")
 public class MessageReceiverService {
     private static String MQ_URL = ActiveMQConnection.DEFAULT_BROKER_URL;
     private static String MQ_SUBJECT = "JMS_TEST";
@@ -31,23 +34,31 @@ public class MessageReceiverService {
         }
     }
 
-    public void receive() throws JMSException {
-        Destination destination = session.createQueue(MQ_SUBJECT);
-
-        // MessageConsumer is used for receiving (consuming) messages
-        MessageConsumer consumer = session.createConsumer(destination);
-
-        while (true) {
-            // Here we receive the message.
-            Message message = consumer.receive();
-            // We will be using TestMessage in our example. MessageProducer sent us a TextMessage
-            // so we must cast to it to get access to its .getText() method.
-            if (message instanceof TextMessage) {
-                TextMessage textMessage = (TextMessage) message;
-                System.out.println("Received message '" + textMessage.getText() + "'");
+    @PostConstruct
+    public void init() {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Destination destination = session.createQueue(MQ_SUBJECT);
+                    // MessageConsumer is used for receiving (consuming) messages
+                    MessageConsumer consumer = session.createConsumer(destination);
+                    while (true) {
+                        // Here we receive the message.
+                        Message message = consumer.receive();
+                        // We will be using TestMessage in our example. MessageProducer sent us a TextMessage
+                        // so we must cast to it to get access to its .getText() method.
+                        if (message instanceof TextMessage) {
+                            TextMessage textMessage = (TextMessage) message;
+                            System.out.println("Received message '" + textMessage.getText() + "'");
+                        }
+                    }
+                } catch (JMSException e) {
+                    e.printStackTrace();
+                }
             }
-        }
-
+        };
+        new Thread(runnable).start();
     }
 
     public void close(){
